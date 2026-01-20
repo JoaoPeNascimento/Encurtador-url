@@ -25,17 +25,29 @@ public class UrlController {
     }
 
     @PostMapping("/shorten-url")
-    public ResponseEntity<ShortenUrlResponse> shortenUrl(@RequestBody ShortenUrlRequest request,
-                                                         HttpServletRequest servletRequest) {
+    public ResponseEntity<ShortenUrlResponse> shortenUrl(
+            @RequestBody ShortenUrlRequest request,
+            HttpServletRequest servletRequest) {
 
         String id;
         do {
             id = RandomStringUtils.randomAlphanumeric(5, 10);
         } while (urlRepository.existsById(id));
 
-        urlRepository.save(new UrlEntity(id, request.url(), LocalDateTime.now().plusMinutes(10)));
+        if (request.expireHours() <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
 
-        var redirectUrl = servletRequest.getRequestURL().toString().replace("shorten-url", id);
+        LocalDateTime expiresAt = LocalDateTime.now()
+                .plusHours(request.expireHours());
+
+        urlRepository.save(
+                new UrlEntity(id, request.url(), expiresAt)
+        );
+
+        String redirectUrl = servletRequest.getRequestURL()
+                .toString()
+                .replace("shorten-url", id);
 
         return ResponseEntity.ok(new ShortenUrlResponse(redirectUrl));
     }
